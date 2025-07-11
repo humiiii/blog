@@ -66,7 +66,7 @@
   }
 
   .btn-dark {
-    @apply rounded-full bg-black px-6 py-3 text-xl whitespace-nowrap text-white capitalize hover:bg-black/80;
+    @apply rounded-lg bg-black px-6 py-3 text-xl whitespace-nowrap text-white capitalize hover:bg-black/80;
   }
 
   .btn-light {
@@ -74,7 +74,7 @@
   }
 
   .input-box {
-    @apply bg-gray border-gray w-[100%] rounded-md border p-4 pl-12 placeholder:text-black focus:bg-transparent;
+    @apply bg-gray border-gray placeholder:text-dark-gray w-[100%] rounded-md border p-4 pl-12 focus:bg-transparent;
   }
 
   input:disabled,
@@ -83,7 +83,7 @@
   }
 
   .input-icon {
-    @apply absolute top-1/2 left-4 -translate-y-1/2;
+    @apply text-dark-gray absolute top-1/2 left-4 -translate-y-1/2;
   }
 
   .link {
