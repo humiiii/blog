@@ -104,16 +104,16 @@ const UserAuthForm = ({ type }) => {
             {type}
           </button>
 
-          <div className="relative my-10 flex w-full items-center gap-2 font-bold text-black uppercase opacity-10">
+          {/* <div className="relative my-10 flex w-full items-center gap-2 font-bold text-black uppercase opacity-10">
             <hr className="w-1/2 border-black" />
             <p>or</p>
             <hr className="w-1/2 border-black" />
-          </div>
+          </div> */}
 
-          <button className="btn-dark flex w-full items-center justify-center gap-4">
+          {/* <button className="btn-dark flex w-full items-center justify-center gap-4">
             <FcGoogle className="text-2xl" />
             Continue with Google
-          </button>
+          </button> */}
 
           {type == "signin" ? (
             <p className="text-dark-gray mt-6 text-center text-xl">
