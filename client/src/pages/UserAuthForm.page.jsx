@@ -1,16 +1,72 @@
 import React from "react";
+import axios from "axios";
+import { storeSession } from "../common/session";
 import InputBox from "../components/InputBox.component";
 import { LuKeyRound, LuUserRound } from "react-icons/lu";
 import { FcGoogle } from "react-icons/fc";
 import { MdAlternateEmail } from "react-icons/md";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import PageAnimation from "../components/page.animation";
 
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import toast, { Toaster } from "react-hot-toast";
+import { useContext } from "react";
+import { UserContext } from "../App";
+
+const getSchema = (type) =>
+  z.object({
+    ...(type !== "signin" && {
+      fullname: z.string().min(3, "Full name is required"),
+    }),
+    email: z.email("Invalid email"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+  });
+
 const UserAuthForm = ({ type }) => {
-  return (
+  let {
+    userAuth: { accessToken },
+    setUserAuth,
+  } = useContext(UserContext);
+
+  const schema = getSchema(type);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(schema),
+  });
+
+  const onSubmit = async (data) => {
+    const route = type === "signin" ? "signin" : "signup";
+    const serverUrl = import.meta.env.VITE_SERVER_URL;
+    try {
+      const res = await axios.post(`${serverUrl}${route}`, data);
+      toast.success(res.data?.message || "Success!");
+      storeSession("user", res.data);
+      setUserAuth(res.data);
+    } catch (err) {
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.errors?.[0]?.message ||
+        "Something went wrong";
+      toast.error(errorMsg);
+    }
+  };
+
+  return accessToken ? (
+    <Navigate to={"/"} />
+  ) : (
     <PageAnimation keyValue={type}>
+      <Toaster />
       <section className="h-cover flex items-center justify-center">
-        <form action="" className="w-[80%] max-w-[400px]">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="w-[80%] max-w-[400px]"
+        >
           <h1 className="font-gelasio mb-24 text-center text-4xl capitalize">
             {type == "signin" ? "Welcome Back" : "Join us today"}
           </h1>
@@ -20,6 +76,8 @@ const UserAuthForm = ({ type }) => {
               type={"text"}
               placeholder={"Full Name"}
               Icon={LuUserRound}
+              register={register}
+              error={errors.fullname?.message}
             />
           ) : (
             ""
@@ -30,12 +88,16 @@ const UserAuthForm = ({ type }) => {
             type={"email"}
             placeholder={"Email"}
             Icon={MdAlternateEmail}
+            register={register}
+            error={errors.email?.message}
           />
           <InputBox
             name={"password"}
             type={"password"}
             placeholder={"Password"}
             Icon={LuKeyRound}
+            register={register}
+            error={errors.password?.message}
           />
 
           <button className="btn-dark center mt-14 w-full" type="submit">
