@@ -57,6 +57,7 @@ function sendUserWithToken(res, user, statuscode = 200) {
       fullname: payload.fullname,
       profile_img: payload.profile_img,
     },
+    message: "Welcome, you are now logged in",
   };
 
   res.status(statuscode).json(responseData);
