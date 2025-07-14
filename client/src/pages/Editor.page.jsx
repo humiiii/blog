@@ -37,11 +37,11 @@ const EditorPage = () => {
     >
       {!accessToken ? (
         <Navigate to={"/signin"} />
-      ) : editorState ? (
+      ) : editorState === "editor" ? (
         <BlogEditor />
-      ) : (
+      ) : editorState === "publish" ? (
         <PublishForm />
-      )}
+      ) : null}
     </EditorContext.Provider>
   );
 };

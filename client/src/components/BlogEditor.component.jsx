@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { Link } from "react-router-dom";
@@ -12,13 +12,12 @@ const BlogEditor = () => {
     blog,
     blog: { title, banner, content, tags, description },
     setBlog,
-    textEditor,
-    setTextEditor,
-    setEditorState
+    setEditorState,
   } = useContext(EditorContext);
 
   const defaultBanner = "./images/blogbanner.png";
 
+  const editorRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
   const handleOnChange = async (e) => {
@@ -64,37 +63,58 @@ const BlogEditor = () => {
   };
 
   useEffect(() => {
-    setTextEditor(
-      new EditorJS({
-        holderId: "editorjs",
-        data: "",
+    if (!editorRef.current) {
+      editorRef.current = new EditorJS({
+        holder: "editorjs",
+        data: content,
         tools: tools,
         placeholder:
           "Verily, in the remembrance of Allah do hearts find rest - { 13:28 }",
-      }),
-    );
+        onReady: () => {
+          console.log("Editor.js is ready to use");
+        },
+        onChange: async () => {
+          try {
+            const savedData = await editorRef.current.save();
+            setBlog((prev) => ({ ...prev, content: savedData }));
+          } catch (err) {
+            console.warn("Saving error:", err);
+          }
+        },
+      });
+    }
+    return () => {
+      if (editorRef.current && editorRef.current.destroy) {
+        editorRef.current.destroy();
+        editorRef.current = null;
+      }
+    };
   }, []);
 
-  const handlePublishEvent = ()=>{
-    if(!banner.length){
-      return toast.error("Upload a blog banner to publish it")
+  const handlePublishEvent = async () => {
+    if (!banner || !banner.length) {
+      return toast.error("Upload a blog banner to publish it");
     }
-    if(!title.length){
-      return toast.error("Blog title missing")
+    if (!title || !title.trim().length) {
+      return toast.error("Blog title missing");
     }
-    if(textEditor.isReady){
-      textEditor.save().then(data=>{
-        if(data.blocks.length){
-          setBlog({...blog,content:data})
-          setEditorState("publish")
-        }
-        else{
-          toast.error("Write something in your blog to publish it")
-        }
-      }).catch(error=>console.log(error)
-      )
+
+    try {
+      await editorRef.current.isReady;
+      const data = await editorRef.current.save();
+
+      if (data.blocks.length > 0) {
+        setBlog({ ...blog, content: data });
+        setEditorState("publish");
+        console.log("Blog content ready for publish:", data);
+      } else {
+        toast.error("Write something in your blog to publish it");
+      }
+    } catch (err) {
+      console.error("Editor save error:", err);
+      toast.error("Failed to save blog content");
     }
-  }
+  };
 
   return (
     <>
@@ -107,7 +127,9 @@ const BlogEditor = () => {
           {title ? title : "New Blog"}
         </p>
         <div className="ml-auto flex gap-4">
-          <button className="btn-dark py-2" onClick={handlePublishEvent}>Publish</button>
+          <button className="btn-dark py-2" onClick={handlePublishEvent}>
+            Publish
+          </button>
           <button className="btn-light py-2">Save Draft</button>
         </div>
       </nav>
@@ -118,7 +140,7 @@ const BlogEditor = () => {
               <label htmlFor="uploadBanner">
                 <img
                   src={banner || defaultBanner}
-                  className="z-20 cursor-pointer"
+                  className="z-20 h-full w-full cursor-pointer object-cover"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = defaultBanner;
@@ -138,8 +160,9 @@ const BlogEditor = () => {
               name="blogTitle"
               placeholder="Blog Title"
               className="mt-10 h-20 w-full resize-none text-4xl leading-tight font-medium outline-none placeholder:opacity-40"
-              onKeyDown={(e) => e.keyCode == 13 && e.preventDefault()}
+              onKeyDown={(e) => e.keyCode === 13 && e.preventDefault()}
               onChange={handleTitleChange}
+              value={title}
             ></textarea>
 
             <hr className="my-5 w-full opacity-10" />
