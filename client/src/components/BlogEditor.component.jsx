@@ -1,15 +1,20 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { Link } from "react-router-dom";
 import PageAnimation from "./page.animation";
 import { EditorContext } from "../pages/Editor.page";
+import EditorJS from "@editorjs/editorjs";
+import { tools } from "../common/editorJStools";
 
 const BlogEditor = () => {
   const {
     blog,
     blog: { title, banner, content, tags, description },
     setBlog,
+    textEditor,
+    setTextEditor,
+    setEditorState
   } = useContext(EditorContext);
 
   const defaultBanner = "./images/blogbanner.png";
@@ -58,6 +63,39 @@ const BlogEditor = () => {
     setBlog({ ...blog, title: input.value });
   };
 
+  useEffect(() => {
+    setTextEditor(
+      new EditorJS({
+        holderId: "editorjs",
+        data: "",
+        tools: tools,
+        placeholder:
+          "Verily, in the remembrance of Allah do hearts find rest - { 13:28 }",
+      }),
+    );
+  }, []);
+
+  const handlePublishEvent = ()=>{
+    if(!banner.length){
+      return toast.error("Upload a blog banner to publish it")
+    }
+    if(!title.length){
+      return toast.error("Blog title missing")
+    }
+    if(textEditor.isReady){
+      textEditor.save().then(data=>{
+        if(data.blocks.length){
+          setBlog({...blog,content:data})
+          setEditorState("publish")
+        }
+        else{
+          toast.error("Write something in your blog to publish it")
+        }
+      }).catch(error=>console.log(error)
+      )
+    }
+  }
+
   return (
     <>
       <Toaster />
@@ -69,7 +107,7 @@ const BlogEditor = () => {
           {title ? title : "New Blog"}
         </p>
         <div className="ml-auto flex gap-4">
-          <button className="btn-dark py-2">Publish</button>
+          <button className="btn-dark py-2" onClick={handlePublishEvent}>Publish</button>
           <button className="btn-light py-2">Save Draft</button>
         </div>
       </nav>
@@ -103,6 +141,10 @@ const BlogEditor = () => {
               onKeyDown={(e) => e.keyCode == 13 && e.preventDefault()}
               onChange={handleTitleChange}
             ></textarea>
+
+            <hr className="my-5 w-full opacity-10" />
+
+            <div className="font-gelasio" id="editorjs"></div>
           </div>
         </section>
       </PageAnimation>
