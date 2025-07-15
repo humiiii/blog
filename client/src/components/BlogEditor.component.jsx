@@ -1,13 +1,18 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import PageAnimation from "./page.animation";
 import { EditorContext } from "../pages/Editor.page";
 import EditorJS from "@editorjs/editorjs";
 import { tools } from "../common/editorJStools";
+import { UserContext } from "../App";
 
 const BlogEditor = () => {
+  const navigate = useNavigate();
+
+  const { accessToken } = useContext(UserContext).userAuth;
+
   const {
     blog,
     blog: { title, banner, content, tags, description },
@@ -32,7 +37,7 @@ const BlogEditor = () => {
 
     try {
       const res = await axios.post(
-        `${import.meta.env.VITE_SERVER_URL}api/upload-image`,
+        `${import.meta.env.VITE_SERVER_URL}/api/upload-image`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -116,6 +121,52 @@ const BlogEditor = () => {
     }
   };
 
+  const [isDraft, setIsDraft] = useState(false);
+
+  const handleDraftEvent = async (e) => {
+    if (!title.trim()) {
+      return toast.error("Title is required.");
+    }
+
+    setIsDraft(true);
+    const toastId = toast.loading("Saving draft...");
+
+    try {
+      await editorRef.current.isReady;
+      const latest = await editorRef.current.save();
+      const payload = {
+        title: title.trim(),
+        description: description?.trim() ?? "",
+        content: latest,
+        banner,
+        tags,
+        draft: true,
+      };
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_SERVER_URL}/create-blog`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      toast.dismiss(toastId);
+      toast.success("Blog saved as Draft!");
+      setTimeout(() => navigate("/"), 500);
+    } catch (err) {
+      toast.dismiss(toastId);
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Something went wrong. Please try again.";
+      toast.error(msg);
+      console.error("Publish error:", err);
+    } finally {
+      setIsDraft(false);
+    }
+  };
   return (
     <>
       <Toaster />
@@ -130,7 +181,13 @@ const BlogEditor = () => {
           <button className="btn-dark py-2" onClick={handlePublishEvent}>
             Publish
           </button>
-          <button className="btn-light py-2">Save Draft</button>
+          <button
+            className={`btn-light py-2 ${isDraft ? "cursor-not-allowed opacity-50" : ""}`}
+            onClick={handleDraftEvent}
+            disabled={isDraft}
+          >
+            {isDraft ? "Saving…" : "Saved Draft"}
+          </button>
         </div>
       </nav>
       <PageAnimation>
