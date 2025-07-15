@@ -18,6 +18,9 @@ app.use("/", authRoute);
 const uploadRoute = require("./routes/imagekitAuth");
 app.use("/api", uploadRoute);
 
+const blogRoute = require("./routes/blog");
+app.use("/create-blog", blogRoute);
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
