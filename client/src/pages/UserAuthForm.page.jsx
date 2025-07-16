@@ -44,7 +44,7 @@ const UserAuthForm = ({ type }) => {
     const route = type === "signin" ? "signin" : "signup";
     const serverUrl = import.meta.env.VITE_SERVER_URL;
     try {
-      const res = await axios.post(`${serverUrl}${route}`, data);
+      const res = await axios.post(`${serverUrl}/api/auth/${route}`, data);
       toast.success(res.data?.message || "Success!");
       storeSession("user", res.data);
       setUserAuth(res.data);

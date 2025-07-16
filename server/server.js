@@ -1,28 +1,30 @@
-// Load environment variables as early as possible
-require("dotenv").config();
+import "dotenv/config";
 
-const express = require("express");
-const cors = require("cors");
-const connectDB = require("./connect");
+import express from "express";
+import cors from "cors";
+import connectDB from "./connect.js";
 
+// Routes
+import authRoute from "./routes/auth.js";
+import uploadRoute from "./routes/imagekitAuth.js";
+import blogRoute from "./routes/blog.js";
+
+// Initialize database
 connectDB();
 
+// Initialize app
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-const authRoute = require("./routes/auth");
-app.use("/", authRoute);
-
-const uploadRoute = require("./routes/imagekitAuth");
+// Route middleware
+app.use("/api/auth", authRoute);
 app.use("/api", uploadRoute);
+app.use("/api/blogs", blogRoute);
 
-const blogRoute = require("./routes/blog");
-app.use("/create-blog", blogRoute);
-
+// Start server
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log(`Server started on port: ${PORT}`);
+  console.log(`✅ Server started on port: ${PORT}`);
 });

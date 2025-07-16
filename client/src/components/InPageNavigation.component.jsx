@@ -12,17 +12,20 @@ const InPageNavigation = ({
   let activeTabRef = useRef();
 
   const changePageState = (btn, index) => {
-    let { offsetWidth, offsetLeft } = btn;
+    if (!btn || !activeTabLineRef.current) return;
+    const { offsetWidth, offsetLeft } = btn;
 
-    activeTabLineRef.current.style.width = offsetWidth + "px";
-    activeTabLineRef.current.style.left = offsetLeft + "px";
+    activeTabLineRef.current.style.width = `${offsetWidth}px`;
+    activeTabLineRef.current.style.left = `${offsetLeft}px`;
 
     setInPageNavIndex(index);
   };
 
   useEffect(() => {
-    changePageState(activeTabRef.current, defaultActiveIndex);
-  }, []);
+    if (activeTabRef.current) {
+      changePageState(activeTabRef.current, defaultActiveIndex);
+    }
+  }, [defaultActiveIndex]);
 
   return (
     <>

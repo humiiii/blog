@@ -1,23 +1,25 @@
-const express = require("express");
-const bcrypt = require("bcrypt");
-const { z } = require("zod");
-const slugify = require("slugify");
-const jwt = require("jsonwebtoken");
+import express from "express";
+import bcrypt from "bcrypt";
+import { z } from "zod";
+import slugify from "slugify";
+import jwt from "jsonwebtoken";
 
-const User = require("../models/User").default || require("../models/User");
+import User from "../models/User.js";
 
 const router = express.Router();
 
+// Schema validation using Zod
 const signupSchema = z.object({
-  fullname: z.string().min(3, "Fullname must be at least 3 characters"),
-  email: z.email(),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  fullname: z.string().min(3, "Fullname must be at least 3 characters long"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters long"),
 });
 
-// Function to generate a unique username from email with a random number prefix
-
+/**
+ * Generates a unique username based on the email.
+ * Appends a random 4-digit number to the slugified local part.
+ */
 async function generateUniqueUsername(email, digits = 4) {
-  // 1) slugify and lowercase the email local‑part
   const base = slugify(email.split("@")[0], {
     lower: true,
     strict: true,
@@ -27,28 +29,35 @@ async function generateUniqueUsername(email, digits = 4) {
   let exists = true;
 
   while (exists) {
-    // 2) generate a new random numeric suffix each iteration
     const randomSuffix = Math.random()
       .toString()
-      .slice(2, 2 + digits); // e.g. "4839" for 4 digits
-
+      .slice(2, 2 + digits);
     username = `${base}${randomSuffix}`;
 
-    // 3) check your exact schema path here:
-    exists = await User.exists({ "personal_info.username": username });
+    try {
+      exists = await User.exists({ "personal_info.username": username });
+    } catch (err) {
+      throw new Error("Error checking username uniqueness");
+    }
   }
 
   return username;
 }
 
-function sendUserWithToken(res, user, statuscode = 200) {
+/**
+ * Generates JWT and sends user data with token in response.
+ */
+function sendUserWithToken(res, user, statusCode = 200) {
   const payload = {
     id: user._id,
     username: user.personal_info.username,
     fullname: user.personal_info.fullname,
     profile_img: user.personal_info.profile_img,
   };
-  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+  const token = jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
 
   const responseData = {
     accessToken: token,
@@ -60,29 +69,37 @@ function sendUserWithToken(res, user, statuscode = 200) {
     message: "Welcome, you are now logged in",
   };
 
-  res.status(statuscode).json(responseData);
-  return responseData;
+  res.status(statusCode).json(responseData);
 }
 
+/**
+ * @route   POST /api/auth/signup
+ * @desc    Register a new user
+ * @access  Public
+ */
 router.post("/signup", async (req, res) => {
-  // Validate form data
   const result = signupSchema.safeParse(req.body);
+
   if (!result.success) {
     return res.status(400).json({ errors: result.error.errors });
   }
+
   const { fullname, email, password } = result.data;
 
   try {
-    // Check if user already exists
+    // Check if email already exists
     const existingUser = await User.findOne({ "personal_info.email": email });
     if (existingUser) {
-      return res.status(409).json({ error: "Email already registered" });
+      return res.status(409).json({ error: "Email is already registered" });
     }
+
     // Generate unique username
     const username = await generateUniqueUsername(email);
-    // Hash password
+
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
-    // Create user
+
+    // Create and save the user
     const newUser = new User({
       personal_info: {
         fullname,
@@ -91,35 +108,45 @@ router.post("/signup", async (req, res) => {
         username,
       },
     });
+
     await newUser.save();
-    // Send JWT and user info
+
+    // Respond with token and user info
     sendUserWithToken(res, newUser, 201);
   } catch (err) {
-    return res.status(500).json({ error: "Server error" });
+    console.error("Signup error:", err);
+    return res.status(500).json({ error: "Server error during signup" });
   }
 });
 
+/**
+ * @route   POST /api/auth/signin
+ * @desc    Login an existing user
+ * @access  Public
+ */
 router.post("/signin", async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
+
+  if (!email?.trim() || !password?.trim()) {
     return res.status(400).json({ error: "Email and password are required" });
   }
+
   try {
-    // Find user by email
     const user = await User.findOne({ "personal_info.email": email });
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
-    // Check password
+
     const isMatch = await bcrypt.compare(password, user.personal_info.password);
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
-    // Send JWT and user info
+
     sendUserWithToken(res, user);
   } catch (err) {
-    return res.status(500).json({ error: "Server error" });
+    console.error("Signin error:", err);
+    return res.status(500).json({ error: "Server error during signin" });
   }
 });
 
-module.exports = router;
+export default router;

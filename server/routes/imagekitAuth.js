@@ -1,6 +1,7 @@
-const express = require("express");
-const imagekit = require("../utils/imagekit");
-const multer = require("multer");
+import express from "express";
+import imagekit from "../utils/imagekit.js";
+import multer from "multer";
+
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -23,4 +24,4 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

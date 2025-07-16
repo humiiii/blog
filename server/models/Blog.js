@@ -1,6 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 
-const blogSchema = mongoose.Schema(
+// Define the schema
+const blogSchema = new Schema(
   {
     blog_id: {
       type: String,
@@ -10,23 +11,27 @@ const blogSchema = mongoose.Schema(
     title: {
       type: String,
       required: true,
+      trim: true,
     },
     banner: {
       type: String,
-      // required: true,
+      required: true,
+      trim: true,
     },
     description: {
       type: String,
       maxlength: 200,
-      // required: true
+      required: true,
+      trim: true,
     },
     content: {
-      type: [],
-      // required: true
+      type: Object,
+      required: true,
     },
     tags: {
       type: [String],
-      // required: true
+      validate: [tagsLimit, "{PATH} exceeds the limit of 10"],
+      default: [],
     },
     author: {
       type: Schema.Types.ObjectId,
@@ -51,10 +56,12 @@ const blogSchema = mongoose.Schema(
         default: 0,
       },
     },
-    comments: {
-      type: [Schema.Types.ObjectId],
-      ref: "comments",
-    },
+    comments: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "comments",
+      },
+    ],
     draft: {
       type: Boolean,
       default: false,
@@ -63,8 +70,16 @@ const blogSchema = mongoose.Schema(
   {
     timestamps: {
       createdAt: "publishedAt",
+      updatedAt: "updatedAt",
     },
   }
 );
 
-export default mongoose.model("blogs", blogSchema);
+// Helper to validate tags count
+function tagsLimit(val) {
+  return val.length <= 10;
+}
+
+// Model export (compatible with both ES modules and CommonJS)
+const Blog = mongoose.models.Blogs || mongoose.model("Blogs", blogSchema);
+export default Blog;

@@ -1,6 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 
-let profile_imgs_name_list = [
+// Predefined avatar options
+const profileImgNames = [
   "Garfield",
   "Tinkerbell",
   "Annie",
@@ -22,93 +23,75 @@ let profile_imgs_name_list = [
   "Felix",
   "Kiki",
 ];
-let profile_imgs_collections_list = [
+
+const profileImgCollections = [
   "notionists-neutral",
   "adventurer-neutral",
   "fun-emoji",
 ];
 
-const userSchema = mongoose.Schema(
+// User Schema
+const userSchema = new Schema(
   {
     personal_info: {
       fullname: {
         type: String,
-        lowercase: true,
         required: true,
-        minlength: [3, "fullname must be 3 letters long"],
+        minlength: [3, "Fullname must be at least 3 characters long"],
+        lowercase: true,
       },
       email: {
         type: String,
         required: true,
-        lowercase: true,
         unique: true,
+        lowercase: true,
       },
-      password: String,
+      password: {
+        type: String, // Will be empty if Google auth
+      },
       username: {
         type: String,
-        minlength: [3, "Username must be 3 letters long"],
         unique: true,
+        minlength: [3, "Username must be at least 3 characters long"],
       },
       bio: {
         type: String,
-        maxlength: [200, "Bio should not be more than 200"],
+        maxlength: [200, "Bio must be at most 200 characters"],
         default: "",
       },
       profile_img: {
         type: String,
         default: () => {
-          return `https://api.dicebear.com/6.x/${
-            profile_imgs_collections_list[
-              Math.floor(Math.random() * profile_imgs_collections_list.length)
-            ]
-          }/svg?seed=${
-            profile_imgs_name_list[
-              Math.floor(Math.random() * profile_imgs_name_list.length)
-            ]
-          }`;
+          const collection =
+            profileImgCollections[
+              Math.floor(Math.random() * profileImgCollections.length)
+            ];
+          const seed =
+            profileImgNames[Math.floor(Math.random() * profileImgNames.length)];
+          return `https://api.dicebear.com/6.x/${collection}/svg?seed=${seed}`;
         },
       },
     },
+
     social_links: {
-      youtube: {
-        type: String,
-        default: "",
-      },
-      instagram: {
-        type: String,
-        default: "",
-      },
-      facebook: {
-        type: String,
-        default: "",
-      },
-      twitter: {
-        type: String,
-        default: "",
-      },
-      github: {
-        type: String,
-        default: "",
-      },
-      website: {
-        type: String,
-        default: "",
-      },
+      youtube: { type: String, default: "" },
+      instagram: { type: String, default: "" },
+      facebook: { type: String, default: "" },
+      twitter: { type: String, default: "" },
+      github: { type: String, default: "" },
+      website: { type: String, default: "" },
     },
+
     account_info: {
-      total_posts: {
-        type: Number,
-        default: 0,
-      },
-      total_reads: {
-        type: Number,
-        default: 0,
-      },
+      total_posts: { type: Number, default: 0 },
+      total_reads: { type: Number, default: 0 },
     },
+
     google_auth: {
       type: Boolean,
       default: false,
     },
+
     blogs: {
       type: [Schema.Types.ObjectId],
       ref: "blogs",
@@ -116,10 +99,10 @@ const userSchema = mongoose.Schema(
     },
   },
   {
-    timestamps: {
-      createdAt: "joinedAt",
-    },
+    timestamps: { createdAt: "joinedAt" },
   }
 );
 
-export default mongoose.model("users", userSchema);
+// Prevent model overwrite in dev
+const User = mongoose.models.users || mongoose.model("users", userSchema);
+export default User;

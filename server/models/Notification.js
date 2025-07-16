@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const notificationSchema = mongoose.Schema(
+const notificationSchema = new Schema(
   {
     type: {
       type: String,
@@ -9,30 +9,30 @@ const notificationSchema = mongoose.Schema(
     },
     blog: {
       type: Schema.Types.ObjectId,
-      required: true,
       ref: "blogs",
+      required: true,
     },
     notification_for: {
       type: Schema.Types.ObjectId,
-      required: true,
       ref: "users",
+      required: true, // User who receives the notification
     },
     user: {
       type: Schema.Types.ObjectId,
-      required: true,
       ref: "users",
+      required: true, // User who triggered the action (like/comment/reply)
     },
     comment: {
       type: Schema.Types.ObjectId,
-      ref: "comments",
+      ref: "comments", // For "comment" or "like" on comment
     },
     reply: {
       type: Schema.Types.ObjectId,
-      ref: "comments",
+      ref: "comments", // For "reply"
     },
     replied_on_comment: {
       type: Schema.Types.ObjectId,
-      ref: "comments",
+      ref: "comments", // Original comment being replied to
     },
     seen: {
       type: Boolean,
@@ -40,8 +40,12 @@ const notificationSchema = mongoose.Schema(
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // Adds createdAt and updatedAt
   }
 );
 
-export default mongoose.model("notification", notificationSchema);
+// Protect against model overwrite errors in dev (like in Next.js)
+const Notification =
+  mongoose.models.notification ||
+  mongoose.model("notification", notificationSchema);
+export default Notification;
