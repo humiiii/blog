@@ -8,6 +8,7 @@ import connectDB from "./connect.js";
 import authRoute from "./routes/auth.js";
 import uploadRoute from "./routes/imagekitAuth.js";
 import blogRoute from "./routes/blog.js";
+import searchRoute from "./routes/search.js";
 
 // Initialize database
 connectDB();
@@ -20,8 +21,9 @@ app.use(cors());
 
 // Route middleware
 app.use("/api/auth", authRoute);
-app.use("/api", uploadRoute);
+app.use("/api/image", uploadRoute);
 app.use("/api/blogs", blogRoute);
+app.use("/api/search", searchRoute);
 
 // Start server
 const PORT = process.env.PORT || 3000;

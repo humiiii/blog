@@ -80,7 +80,7 @@ const PublishForm = () => {
         draft: false,
       };
       const { data } = await axios.post(
-        `${import.meta.env.VITE_SERVER_URL}/create-blog`,
+        `${import.meta.env.VITE_SERVER_URL}/api/blogs/create-blog`,
         payload,
         {
           headers: {
