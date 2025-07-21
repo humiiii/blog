@@ -10,6 +10,8 @@ import BlogPost from "../components/BlogPost.component";
 import MinimalBlogPost from "../components/MinimalBlogPost.component";
 import { IoTrendingUp } from "react-icons/io5";
 import Nodata from "../components/Nodata.component";
+import { handlePaginationData } from "../common/filterPaginationData.js";
+import LoadMoreDataButton from "../components/LoadMoreDataButton.component";
 
 const filterWords = [
   "Technology",
@@ -23,18 +25,33 @@ const filterWords = [
 ];
 
 const HomePage = () => {
-  const [latestBlogs, setLatestBlogs] = useState([]);
+  const [latestBlogs, setLatestBlogs] = useState({
+    results: [],
+    page: 1,
+    totalDocs: 0,
+  });
   const [trendingBlogs, setTrendingBlogs] = useState([]);
   const [latestLoading, setLatestLoading] = useState(true);
   const [trendingLoading, setTrendingLoading] = useState(true);
+  const [loadMoreLoading, setLoadMoreLoading] = useState(false);
   const [pageState, setPageState] = useState("home");
 
-  const fetchLatestBlogs = async () => {
+  const fetchLatestBlogs = async (page = 1, reset = false) => {
     try {
-      const { data } = await axios.get(
+      const { data } = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/blogs/latest`,
+        { page },
       );
-      setLatestBlogs(data.blogs || []);
+
+      const formatedData = await handlePaginationData({
+        createNewArray: reset,
+        state: latestBlogs,
+        data: data.blogs,
+        page,
+        endpoint: "/api/blogs/all-latest-blogs-count",
+      });
+
+      setLatestBlogs(formatedData);
     } catch (err) {
       console.error("Error fetching latest blogs:", err);
       toast.error("Failed to load latest blogs");
@@ -53,13 +70,23 @@ const HomePage = () => {
     }
   };
 
-  const fetchBlogsByCategory = async () => {
+  const fetchBlogsByCategory = async (page = 1, reset = false) => {
     try {
       const { data } = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/search/search-blogs`,
-        { tag: pageState },
+        { tag: pageState, page },
       );
-      setLatestBlogs(data.blogs || []);
+
+      const formatedData = await handlePaginationData({
+        createNewArray: reset,
+        state: latestBlogs,
+        data: data.blogs,
+        page,
+        endpoint: "/api/search/search-blogs-count",
+        payload: { tag: pageState },
+      });
+
+      setLatestBlogs(formatedData);
     } catch (err) {
       console.error("Error fetching search blogs:", err);
       toast.error("Failed to load blogs");
@@ -71,13 +98,12 @@ const HomePage = () => {
     const fetch = async () => {
       setLatestLoading(true);
       if (pageState === "home") {
-        await fetchLatestBlogs();
+        await fetchLatestBlogs(1, true);
       } else {
-        await fetchBlogsByCategory();
+        await fetchBlogsByCategory(1, true);
       }
       setLatestLoading(false);
     };
-
     fetch();
   }, [pageState]);
 
@@ -87,26 +113,43 @@ const HomePage = () => {
       await fetchTrendingBlogs();
       setTrendingLoading(false);
     };
-
     fetch();
   }, []);
 
   const handleFilterBlogByCategory = (e) => {
     const filterText = e.target.innerText.toLowerCase();
 
-    setLatestBlogs([]);
-
-    if (pageState == filterText) {
+    if (pageState === filterText) {
       setPageState("home");
-      return;
+    } else {
+      setPageState(filterText);
     }
 
-    setPageState(filterText);
+    // Reset state to initial object on category change
+    setLatestBlogs({
+      results: [],
+      page: 1,
+      totalDocs: 0,
+    });
+  };
+
+  const handleLoadMore = async () => {
+    setLoadMoreLoading(true);
+    const nextPage = latestBlogs.page + 1;
+
+    if (pageState === "home") {
+      await fetchLatestBlogs(nextPage);
+    } else {
+      await fetchBlogsByCategory(nextPage);
+    }
+
+    setLoadMoreLoading(false);
   };
 
   return (
     <PageAnimation>
       <section className="h-cover flex justify-center gap-10">
+        {/* LEFT SIDE - MAIN BLOGS LIST */}
         <div className="w-full">
           <InPageNavigation
             routes={[pageState, "trending blogs"]}
@@ -115,8 +158,8 @@ const HomePage = () => {
             <>
               {latestLoading ? (
                 <Loader size={60} />
-              ) : latestBlogs.length ? (
-                latestBlogs.map((blog, index) => (
+              ) : latestBlogs.results.length ? (
+                latestBlogs.results.map((blog, index) => (
                   <PageAnimation
                     key={index}
                     transition={{ duration: 1, delay: index * 0.1 }}
@@ -130,9 +173,18 @@ const HomePage = () => {
               ) : (
                 <Nodata message="No blogs found." />
               )}
+
+              {/* Load More (for both homepage and category-based search) */}
+              {latestBlogs.results.length < latestBlogs.totalDocs && (
+                <LoadMoreDataButton
+                  onClick={handleLoadMore}
+                  isVisible={true}
+                  loading={loadMoreLoading}
+                />
+              )}
             </>
             <>
-              {latestLoading ? (
+              {trendingLoading ? (
                 <Loader size={60} />
               ) : trendingBlogs.length ? (
                 trendingBlogs.map((blog, index) => (
@@ -149,9 +201,12 @@ const HomePage = () => {
             </>
           </InPageNavigation>
         </div>
+
+        {/* RIGHT SIDE - CATEGORIES + TRENDING */}
         <div className="border-gray max-w-min min-w-[40%] border-l pt-3 pl-8 max-md:hidden lg:min-w-[400px]">
           <div className="flex flex-col gap-10">
-            <div className="">
+            {/* CATEGORY FILTER */}
+            <div>
               <h1 className="mb-8 text-xl font-medium">
                 Stories from all interests
               </h1>
@@ -160,19 +215,19 @@ const HomePage = () => {
                   <button
                     onClick={handleFilterBlogByCategory}
                     key={index}
-                    className={`tag ${pageState == word.toLocaleLowerCase() ? "bg-black text-white" : ""}`}
+                    className={`tag ${pageState === word.toLowerCase() ? "bg-black text-white" : ""}`}
                   >
                     {word}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="">
+
+            {/* TRENDING BLOGS */}
+            <div>
               <h1 className="mb-8 flex items-center gap-4 text-xl font-medium">
                 Trending <IoTrendingUp />
               </h1>
-            </div>
-            <>
               {trendingLoading ? (
                 <Loader />
               ) : trendingBlogs.length ? (
@@ -187,7 +242,7 @@ const HomePage = () => {
               ) : (
                 <Nodata message="No trending blogs found." />
               )}
-            </>
+            </div>
           </div>
         </div>
       </section>

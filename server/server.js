@@ -6,7 +6,7 @@ import connectDB from "./connect.js";
 
 // Routes
 import authRoute from "./routes/auth.js";
-import uploadRoute from "./routes/imagekitAuth.js";
+import uploadRoute from "./routes/image.js";
 import blogRoute from "./routes/blog.js";
 import searchRoute from "./routes/search.js";
 

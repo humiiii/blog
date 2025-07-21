@@ -8,26 +8,49 @@ import User from "../models/User.js";
 const router = express.Router();
 
 /**
- * @route   GET /api/blogs/latest
+ * @route   POST /api/blogs/latest
  * @desc    Fetch latest 5 published blogs
  * @access  Public
  */
 
-router.get("/latest", async (req, res) => {
+router.post("/latest", async (req, res) => {
   try {
+    let { page } = req.body;
+    let maxLimit = 5;
     const blogs = await Blog.find({ draft: false })
-      .limit(5)
+      .limit(maxLimit)
       .sort({ publishedAt: -1 })
       .select("blog_id title description banner activity tags publishedAt")
       .populate({
         path: "author",
         select:
           "personal_info.profile_img personal_info.username personal_info.fullname -_id",
-      });
+      })
+      .skip((page - 1) * maxLimit);
     return res.status(200).json({ blogs });
   } catch (error) {
     console.error("Error fetching latest blogs:", err);
     return res.status(500).json({ error: "Failed to fetch blogs. Try again." });
+  }
+});
+
+/**
+ * @route   POST /api/blogs/all-latest-blogs-count
+ * @desc    Get total count of latest published blogs (non-drafts)
+ * @access  Public
+ */
+
+router.post("/all-latest-blogs-count", async (req, res) => {
+  try {
+    const totalDocs = await Blog.countDocuments({ draft: false });
+    console.log(totalDocs);
+    return res.status(200).json({ success: true, totalDocs });
+  } catch (error) {
+    console.error("Error fetching blog count:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to fetch blog count. Please try again later.",
+    });
   }
 });
 
