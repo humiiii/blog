@@ -1,5 +1,5 @@
 import React, { useState, useContext } from "react";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import { LuBell, LuFilePen, LuSearch } from "react-icons/lu";
 
 import { UserContext } from "../App";
@@ -7,6 +7,8 @@ import UserNavigationPanel from "./UserNavigation.component";
 import { Toaster } from "react-hot-toast";
 
 const Navbar = () => {
+  const navigate = useNavigate();
+
   const [searchBoxVisibility, setSearchBoxVisibility] = useState(false);
   const [userNavPanel, setUserNavPanel] = useState(false);
 
@@ -15,6 +17,14 @@ const Navbar = () => {
   const { accessToken, user } = userAuth || {};
   const profile_img = user?.profile_img;
   const fullname = user?.fullname;
+
+  const handleSearch = (e) => {
+    let query = e.target.value;
+
+    if (e.keyCode == 13 && query.length) {
+      navigate(`/search/${query}`);
+    }
+  };
 
   return (
     <>
@@ -31,6 +41,7 @@ const Navbar = () => {
             type="text"
             placeholder="Search"
             className="bg-gray placeholder:text-dark-gray w-full rounded-lg p-4 pr-[12%] pl-6 md:w-auto md:pr-6 md:pl-13"
+            onKeyDown={handleSearch}
           />
           <LuSearch className="text-dark-gray absolute top-1/2 right-[10%] -translate-y-1/2 text-xl md:pointer-events-none md:left-5" />
         </div>
