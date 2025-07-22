@@ -70,7 +70,7 @@
   }
 
   .btn-light {
-    @apply bg-gray text-dark-gray cursor-pointer rounded-lg border px-6 py-3 text-xl whitespace-nowrap capitalize hover:bg-black/80 hover:text-white;
+    @apply bg-gray text-dark-gray cursor-pointer rounded-lg px-6 py-3 text-xl whitespace-nowrap capitalize hover:bg-black/80 hover:text-white;
   }
 
   .input-box {

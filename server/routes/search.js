@@ -11,15 +11,16 @@ const router = express.Router();
  */
 router.post("/search-blogs", async (req, res) => {
   try {
-    const { tag, query, page = 1 } = req.body;
+    const { tag, query, author, page = 1 } = req.body;
 
     if (
       (!tag || typeof tag !== "string" || !tag.trim()) &&
-      (!query || typeof query !== "string" || !query.trim())
+      (!query || typeof query !== "string" || !query.trim()) &&
+      (!author || typeof author !== "string" || !author.trim())
     ) {
       return res.status(400).json({
         success: false,
-        error: "Either 'tag' or 'query' must be provided.",
+        error: "Either 'tag', 'query', or 'author' must be provided.",
       });
     }
 
@@ -29,6 +30,8 @@ router.post("/search-blogs", async (req, res) => {
       findQuery.tags = tag.trim().toLowerCase();
     } else if (query?.trim()) {
       findQuery.title = new RegExp(query.trim(), "i");
+    } else if (author?.trim()) {
+      findQuery.author = author.trim().toLowerCase();
     }
 
     const LIMIT = 5;
@@ -62,15 +65,16 @@ router.post("/search-blogs", async (req, res) => {
  */
 router.post("/search-blogs-count", async (req, res) => {
   try {
-    const { tag, query } = req.body;
+    const { tag, query, author } = req.body;
 
     if (
       (!tag || typeof tag !== "string" || !tag.trim()) &&
-      (!query || typeof query !== "string" || !query.trim())
+      (!query || typeof query !== "string" || !query.trim()) &&
+      (!author || typeof author !== "string" || !author.trim())
     ) {
       return res.status(400).json({
         success: false,
-        error: "Either 'tag' or 'query' must be provided.",
+        error: "Either 'tag', 'query', or 'author' must be provided.",
       });
     }
 
@@ -80,15 +84,11 @@ router.post("/search-blogs-count", async (req, res) => {
       countQuery.tags = tag.trim().toLowerCase();
     } else if (query?.trim()) {
       countQuery.title = new RegExp(query.trim(), "i");
+    } else if (author?.trim()) {
+      countQuery.author = author.trim().toLowerCase();
     }
 
     const totalDocs = await Blog.countDocuments(countQuery);
-
-    console.log(
-      `[Search Blogs Count] Count for ${
-        tag ? `tag '${tag}'` : `query '${query}'`
-      }: ${totalDocs}`
-    );
 
     return res.status(200).json({ success: true, totalDocs });
   } catch (error) {

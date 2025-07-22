@@ -9,11 +9,12 @@ import EditorPage from "./pages/Editor.page";
 import HomePage from "./pages/Home.page";
 import Search from "./pages/Search.page";
 import PageNotFound from "./pages/404.page";
+import Profile from "./pages/Profile.page";
 
 export const UserContext = createContext({});
 
 const App = () => {
-  const [userAuth, setUserAuth] = useState({});
+  const [userAuth, setUserAuth] = useState(null);
 
   useEffect(() => {
     const userInSession = lookSession("user");
@@ -32,6 +33,7 @@ const App = () => {
           <Route path="signin" element={<UserAuthForm type={"signin"} />} />
           <Route path="signup" element={<UserAuthForm type={"signup"} />} />
           <Route path="search/:query" element={<Search />} />
+          <Route path="user/:id" element={<Profile />} />
           <Route path="*" element={<PageNotFound />} />
         </Route>
       </Routes>
