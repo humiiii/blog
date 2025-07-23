@@ -43,7 +43,7 @@ const AboutUser = ({ bio, social_links, joinedAt, className }) => {
         })}
       </div>
       <p className="text-dark-gray text-xl leading-7">
-        {/* Joined on {format(new Date(joinedAt), "dd MMM yyyy")} */}
+        Joined on {joinedAt && format(new Date(joinedAt), "dd MMM yyyy")}
       </p>
     </div>
   );
