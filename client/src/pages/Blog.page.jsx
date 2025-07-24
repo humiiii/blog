@@ -8,6 +8,7 @@ import Loader from "../components/Loader.component";
 import PageAnimation from "../components/page.animation";
 import BlogInteraction from "../components/BlogInteraction.component";
 import BlogPost from "../components/BlogPost.component";
+import BlogContent from "../components/BlogContent.component";
 
 export const blogStructure = {
   activity: {
@@ -140,6 +141,9 @@ const BlogPage = () => {
             </div>
           </div>
           <BlogInteraction />
+          <div className="font-gelasio blog-page-content my-12">
+            <BlogContent blocks={content.blocks} />
+          </div>
           <BlogInteraction />
           {similarBlogs.length > 0 && (
             <>

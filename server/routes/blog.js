@@ -175,4 +175,47 @@ router.post("/create-blog", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/get-blog", async (req, res) => {
+  try {
+    const { blogId } = req.body;
+
+    if (!blogId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Blog ID is required." });
+    }
+
+    const incrementVal = 1;
+
+    const blog = await Blog.findOneAndUpdate(
+      { blog_id: blogId },
+      { $inc: { "activity.total_reads": incrementVal } },
+      { new: true }
+    )
+      .populate(
+        "author",
+        "personal_info.fullname personal_info.username personal_info.profile_img"
+      )
+      .select(
+        "title description content banner activity publishedAt blog_id tags"
+      );
+
+    if (!blog) {
+      return res.status(404).json({ success: false, error: "Blog not found." });
+    }
+
+    await User.findOneAndUpdate(
+      { "personal_info.username": blog.author.personal_info.username },
+      { $inc: { "account_info.total_reads": incrementVal } }
+    );
+
+    return res.status(200).json({ success: true, blog });
+  } catch (err) {
+    console.error("Error in /get-blog:", err);
+    return res
+      .status(500)
+      .json({ success: false, error: "Internal server error." });
+  }
+});
+
 export default router;

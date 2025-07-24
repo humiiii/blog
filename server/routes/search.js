@@ -11,7 +11,7 @@ const router = express.Router();
  */
 router.post("/search-blogs", async (req, res) => {
   try {
-    const { tag, query, author, page = 1 } = req.body;
+    const { tag, query, author, page = 1, limit = 5, currentBlog } = req.body;
 
     if (
       (!tag || typeof tag !== "string" || !tag.trim()) &&
@@ -24,7 +24,7 @@ router.post("/search-blogs", async (req, res) => {
       });
     }
 
-    let findQuery = { draft: false };
+    let findQuery = { draft: false, blog_id: { $ne: currentBlog } };
 
     if (tag?.trim()) {
       findQuery.tags = tag.trim().toLowerCase();
@@ -34,13 +34,12 @@ router.post("/search-blogs", async (req, res) => {
       findQuery.author = author.trim().toLowerCase();
     }
 
-    const LIMIT = 5;
-    const skip = (Number(page) - 1) * LIMIT;
+    const skip = (Number(page) - 1) * limit;
 
     const blogs = await Blog.find(findQuery)
       .sort({ publishedAt: -1 })
       .skip(skip)
-      .limit(LIMIT)
+      .limit(limit)
       .select("blog_id title description banner activity tags publishedAt")
       .populate({
         path: "author",

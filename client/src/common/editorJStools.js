@@ -14,7 +14,7 @@ const handleUploadByFile = async (e) => {
   formData.append("image", e);
   try {
     const res = await axios.post(
-      `${import.meta.env.VITE_SERVER_URL}api/upload-image`,
+      `${import.meta.env.VITE_SERVER_URL}/api/image/upload-image`,
       formData,
       {
         headers: { "Content-Type": "multipart/form-data" },
