@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import PageAnimation from "./page.animation";
 import { EditorContext } from "../pages/Editor.page";
 import EditorJS from "@editorjs/editorjs";
@@ -10,6 +10,8 @@ import { UserContext } from "../App";
 
 const BlogEditor = () => {
   const navigate = useNavigate();
+
+  const { blogId } = useParams();
 
   const { accessToken } = useContext(UserContext).userAuth;
 
@@ -111,7 +113,6 @@ const BlogEditor = () => {
       if (data.blocks.length > 0) {
         setBlog({ ...blog, content: data });
         setEditorState("publish");
-        console.log("Blog content ready for publish:", data);
       } else {
         toast.error("Write something in your blog to publish it");
       }
@@ -142,9 +143,12 @@ const BlogEditor = () => {
         tags,
         draft: true,
       };
+      console.log("blogId param:", blogId);
+      console.log("Payload:", payload);
+
       const { data } = await axios.post(
-        `${import.meta.env.VITE_SERVER_URL}/create-blog`,
-        payload,
+        `${import.meta.env.VITE_SERVER_URL}/api/blogs/create-blog`,
+        { ...payload, blogId },
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -153,7 +157,7 @@ const BlogEditor = () => {
       );
 
       toast.dismiss(toastId);
-      toast.success("Blog saved as Draft!");
+      toast.success(data.message || "Blog saved as a Draft!");
       setTimeout(() => navigate("/"), 500);
     } catch (err) {
       toast.dismiss(toastId);

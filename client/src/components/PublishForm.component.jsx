@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { IoClose } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import PageAnimation from "./page.animation";
 import Tag from "./Tag.component";
@@ -13,6 +13,7 @@ const CHARACTER_LIMIT = 200;
 const TAGS_LIMIT = 10;
 
 const PublishForm = () => {
+  let { blogId } = useParams();
   const navigate = useNavigate();
   const { accessToken } = useContext(UserContext).userAuth;
   const {
@@ -81,7 +82,7 @@ const PublishForm = () => {
       };
       const { data } = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/blogs/create-blog`,
-        payload,
+        { ...payload, blogId },
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,

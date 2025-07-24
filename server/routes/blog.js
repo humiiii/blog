@@ -85,14 +85,23 @@ router.get("/trending", async (req, res) => {
 });
 
 /**
- * @route   POST /api/blogs
- * @desc    Create a new blog post (or save as draft)
+/**
+ * @route   POST /api/blogs/create-blog
+ * @desc    Create a new blog post or update an existing one (if blogId provided)
  * @access  Private
  */
 router.post("/create-blog", authMiddleware, async (req, res) => {
   try {
     const authorId = req.user.id;
-    let { title, description, content, banner, tags = [], draft } = req.body;
+    let {
+      blogId,
+      title,
+      description,
+      content,
+      banner,
+      tags = [],
+      draft,
+    } = req.body;
 
     // Basic validation
     if (!title || !title.trim()) {
@@ -133,15 +142,46 @@ router.post("/create-blog", authMiddleware, async (req, res) => {
     // Normalize tags
     tags = tags.map((tag) => tag.trim().toLowerCase());
 
-    // Generate a URL‑friendly slug + unique id
-    const slugBase = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-    const slug = `${slugBase}-${nanoid(6)}`;
+    // Generate slug (only if creating new blog)
 
-    // Build and save the blog
-    const blog = new Blog({
+    console.log(blogId);
+
+    let slug;
+    if (!blogId) {
+      const slugBase = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      slug = `${slugBase}-${nanoid(6)}`;
+    }
+
+    // If blogId is provided, update the existing blog
+    if (blogId) {
+      // Find the blog by blog_id and update fields
+      const blog = await Blog.findOneAndUpdate(
+        { blog_id: blogId },
+        {
+          title: title.trim(),
+          description: description ? description.trim() : "",
+          banner: banner ? banner.trim() : "",
+          content,
+          tags,
+          draft: Boolean(draft),
+        },
+        { new: true }
+      );
+
+      if (!blog) {
+        return res.status(404).json({
+          error: "Blog not found or you do not have permission to update.",
+        });
+      }
+
+      return res.status(200).json({ message: "Blog updated.", blog });
+    }
+
+    // Otherwise create a new blog
+    const newBlog = new Blog({
       title: title.trim(),
       description: description.trim(),
       banner: banner.trim(),
@@ -152,32 +192,40 @@ router.post("/create-blog", authMiddleware, async (req, res) => {
       draft: Boolean(draft),
     });
 
-    await blog.save();
+    await newBlog.save();
 
     // Increment total_posts only if not a draft
-    if (!blog.draft) {
+    if (!newBlog.draft) {
       await User.findByIdAndUpdate(authorId, {
         $inc: { "account_info.total_posts": 1 },
-        $push: { blogs: blog._id },
+        $push: { blogs: newBlog._id },
       });
     } else {
       await User.findByIdAndUpdate(authorId, {
-        $push: { blogs: blog._id },
+        $push: { blogs: newBlog._id },
       });
     }
 
-    return res.status(201).json({ message: "Blog saved.", blog });
+    return res.status(201).json({ message: "Blog created.", blog: newBlog });
   } catch (err) {
-    console.error("Error creating blog:", err);
+    console.error("Error creating/updating blog:", err);
     return res
       .status(500)
       .json({ error: "Server error. Please try again later." });
   }
 });
 
+/**
+ * @route   POST /api/blogs/get-blog
+ * @desc    Retrieve a blog post by blog_id with draft mode access control.
+ *          Increments total reads if mode is not "edit".
+ *          Blocks access to draft blogs unless draft=true is provided in request.
+ * @access  Public (draft blogs access is restricted)
+ */
+
 router.post("/get-blog", async (req, res) => {
   try {
-    const { blogId } = req.body;
+    const { blogId, draft, mode } = req.body;
 
     if (!blogId) {
       return res
@@ -185,7 +233,7 @@ router.post("/get-blog", async (req, res) => {
         .json({ success: false, error: "Blog ID is required." });
     }
 
-    const incrementVal = 1;
+    const incrementVal = mode !== "edit" ? 1 : 0;
 
     const blog = await Blog.findOneAndUpdate(
       { blog_id: blogId },
@@ -197,11 +245,19 @@ router.post("/get-blog", async (req, res) => {
         "personal_info.fullname personal_info.username personal_info.profile_img"
       )
       .select(
-        "title description content banner activity publishedAt blog_id tags"
-      );
+        "title description content banner activity publishedAt blog_id tags draft"
+      ); // Ensure draft field is selected
 
     if (!blog) {
       return res.status(404).json({ success: false, error: "Blog not found." });
+    }
+
+    // Restrict access to draft blogs if 'draft' flag is not set in request
+    if (blog.draft && !draft) {
+      return res.status(403).json({
+        success: false,
+        error: "Access denied: Blog is a draft and cannot be viewed publicly.",
+      });
     }
 
     await User.findOneAndUpdate(
