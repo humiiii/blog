@@ -47,6 +47,7 @@ const BlogPage = () => {
   const [blog, setBlog] = useState(blogStructure);
   const [similarBlogs, setSimilarBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isLikedByUser, setIsLikedByUser] = useState(false);
 
   const {
     title,
@@ -110,7 +111,9 @@ const BlogPage = () => {
 
   return (
     <PageAnimation>
-      <BlogContext.Provider value={{ blog, setBlog }}>
+      <BlogContext.Provider
+        value={{ blog, setBlog, isLikedByUser, setIsLikedByUser }}
+      >
         <div className="center max-w-[900px] py-10 max-lg:px-[5vw]">
           <img
             src={banner}

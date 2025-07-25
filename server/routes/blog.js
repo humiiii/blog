@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import authMiddleware from "../middleware/authMiddleware.js";
 import Blog from "../models/Blog.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 
 const router = express.Router();
 
@@ -271,6 +272,107 @@ router.post("/get-blog", async (req, res) => {
     return res
       .status(500)
       .json({ success: false, error: "Internal server error." });
+  }
+});
+
+/**
+ * @route   POST /api/blogs/like-blog
+ * @desc    Like or unlike a blog post and create a notification on like
+ * @access  Private (requires authMiddleware)
+ *
+ * @body
+ *  - _id: string (Blog document _id to like/unlike)
+ *  - isLikedByUser: boolean (whether the blog is currently liked by the user)
+ *
+ * @response
+ *  - 200: { liked_by_user: boolean }
+ *  - 400: { error: string } (bad request)
+ *  - 404: { error: string } (blog not found)
+ *  - 500: { error: string } (server error)
+ */
+router.post("/like-blog", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { _id, isLikedByUser } = req.body;
+
+    // Validate input
+    if (!_id) {
+      return res.status(400).json({ error: "Invalid request data." });
+    }
+
+    // Calculate increment value based on current like state
+    const incrementVal = !isLikedByUser ? 1 : -1;
+
+    // Atomically update blog likes count
+    const blog = await Blog.findOneAndUpdate(
+      { _id },
+      { $inc: { "activity.total_likes": incrementVal } },
+      { new: true }
+    );
+
+    if (!blog) {
+      return res.status(404).json({ error: "Blog not found." });
+    }
+
+    // Manage like notifications
+    if (!isLikedByUser) {
+      // Create notification for liking the blog
+      const likeNotification = new Notification({
+        type: "like",
+        blog: _id,
+        notification_for: blog.author,
+        user: userId,
+      });
+
+      await likeNotification.save();
+    } else {
+      // Remove existing like notification when unliked
+      await Notification.findOneAndDelete({
+        user: userId,
+        blog: _id,
+        type: "like",
+      });
+    }
+
+    // Return updated like state
+    return res.status(200).json({ liked_by_user: !isLikedByUser });
+  } catch (error) {
+    console.error("Error in /like-blog:", error);
+    return res.status(500).json({
+      error:
+        "An error occurred while processing your request. Please try again later.",
+    });
+  }
+});
+
+/**
+ * @route   POST /api/notifications/liked-by-user
+ * @desc    Check if a user has liked a specific blog
+ * @access  Private (requires authentication)
+ */
+router.post("/liked-by-user", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { _id } = req.body;
+
+    // --- Validation ---
+    if (!_id) {
+      return res.status(400).json({ error: "Blog ID (_id) is required." });
+    }
+
+    // --- Database Check ---
+    const hasLiked = await Notification.exists({
+      user: userId,
+      type: "like",
+      blog: _id,
+    });
+
+    return res.status(200).json({ liked: Boolean(hasLiked) });
+  } catch (error) {
+    console.error("[LikedByUser] Error checking like status:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to check like status. Please try again." });
   }
 });
 
