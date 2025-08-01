@@ -5,6 +5,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import Blog from "../models/Blog.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import Comment from "../models/Comment.js";
 
 const router = express.Router();
 
@@ -373,6 +374,111 @@ router.post("/liked-by-user", authMiddleware, async (req, res) => {
     return res
       .status(500)
       .json({ error: "Failed to check like status. Please try again." });
+  }
+});
+
+/** 
+ @route : POST /api/blogs/add-comment
+ @description : Adds a comment to a blog post.
+ */
+
+router.post("/add-comment", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { _id: blogId, comment, blog_author } = req.body;
+
+    // Validate Input
+    if (typeof comment !== "string" || !comment.trim()) {
+      return res.status(400).json({ error: "Comment cannot be empty." });
+    }
+    if (!blogId || !blog_author) {
+      return res
+        .status(400)
+        .json({ error: "Blog ID and author are required." });
+    }
+
+    // Create and Save Comment
+    const commentObject = new Comment({
+      blog_id: blogId,
+      blog_author,
+      comment: comment.trim(),
+      commented_by: userId,
+    });
+    const newComment = await commentObject.save();
+
+    // Update the Blog (push comment ID, increment activity)
+    await Blog.findByIdAndUpdate(
+      blogId,
+      {
+        $push: { comments: newComment._id },
+        $inc: {
+          "activity.total_comments": 1,
+          "activity.total_parent_comments": 1,
+        },
+      },
+      { new: true }
+    );
+
+    // Create and Save Notification
+    const notificationObject = {
+      type: "comment",
+      blog: blogId,
+      notification_for: blog_author,
+      user: userId,
+      comment: newComment._id,
+    };
+    await new Notification(notificationObject).save();
+
+    // Prepare Comment Data for Response
+    const { comment: content, commentedAt, children, _id } = newComment;
+    return res.status(201).json({
+      comment: content,
+      commentedAt,
+      _id,
+      userId,
+      children,
+    });
+  } catch (error) {
+    console.error("Error adding comment:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to add comment. Please try again later." });
+  }
+});
+
+router.post("/get-blog-comments", async (req, res) => {
+  try {
+    const { blog_id, skip } = req.body;
+    const maxLimit = 5;
+
+    // Input validation
+    if (!blog_id) {
+      return res.status(400).json({ error: "Missing required parameter: blog_id" });
+    }
+
+    const skipVal = Number.isInteger(skip) && skip > 0 ? skip : 0;
+
+    // Fetch top-level comments with pagination and necessary populates
+    const comments = await Comment.find({ blog_id, isReply: false })
+      .populate(
+        "commented_by",
+        "personal_info.username personal_info.fullname personal_info.profile_img"
+      )
+      .sort({ commentedAt: -1 })
+      .skip(skipVal)
+      .limit(maxLimit);
+
+    // Fetch blog activity counts
+    const blog = await Blog.findById(blog_id, "activity");
+
+    // Prepare activity info or fallback to empty object
+    const activity = blog?.activity ? blog.activity.toObject() : {};
+
+    // Return both comments and activity counts
+    return res.status(200).json({ results: comments, activity });
+  } catch (error) {
+    console.error("Failed to fetch comments:", error);
+    return res.status(500).json({ error: "Failed to fetch comments. Please try again later." });
   }
 });
 

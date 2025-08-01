@@ -9,6 +9,7 @@ import PageAnimation from "../components/page.animation";
 import BlogInteraction from "../components/BlogInteraction.component";
 import BlogPost from "../components/BlogPost.component";
 import BlogContent from "../components/BlogContent.component";
+import CommentsContainer, { fetchComments } from "../components/CommentsContainer.component";
 
 export const blogStructure = {
   activity: {
@@ -48,6 +49,8 @@ const BlogPage = () => {
   const [similarBlogs, setSimilarBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isLikedByUser, setIsLikedByUser] = useState(false);
+  const [commentsWrapper, setCommentsWrapper] = useState(false);
+  const [totalParentCommentsLoaded, setTotalParentCommentsLoaded] = useState(0);
 
   const {
     title,
@@ -55,7 +58,7 @@ const BlogPage = () => {
     banner,
     author: {
       personal_info: { fullname, profile_img, username },
-    },
+    } = {},
     publishedAt,
   } = blog;
 
@@ -68,23 +71,43 @@ const BlogPage = () => {
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/blogs/get-blog`,
-        { blogId },
+        { blogId }
       );
-
       if (response?.data?.success && response.data.blog) {
-        const blogData = response.data.blog;
-        setBlog(blogData); // Fetch similar blogs now that we have tags
+        const incomingBlog = response.data.blog;
 
-        if (blogData?.tags?.length) {
+        // Fetch comments and activity
+        const { results, activity } = await fetchComments({
+          blog_id: incomingBlog._id,
+          setParentCommentCountFunction: setTotalParentCommentsLoaded,
+          comment_array: null,
+          skip: 0,
+        });        
+
+        // Safely merge with all required fields and defaults
+        const safeBlog = {
+          ...blogStructure,
+          ...incomingBlog,
+          comments: { results }, // always set to object with array
+          activity: {
+            ...blogStructure.activity,
+            ...(incomingBlog.activity || {}),
+            ...(activity || {}),
+          },
+        };
+        
+        setBlog(safeBlog);
+
+        // Fetch similar blogs (unchanged)
+        if (safeBlog?.tags?.length) {
           const { data: similarRes } = await axios.post(
             `${import.meta.env.VITE_SERVER_URL}/api/search/search-blogs`,
             {
-              tag: blogData.tags[0],
+              tag: safeBlog.tags[0],
               limit: 5,
               currentBlog: blogId,
-            },
+            }
           );
-
           if (similarRes?.success && Array.isArray(similarRes.blogs)) {
             setSimilarBlogs(similarRes.blogs);
           }
@@ -103,6 +126,7 @@ const BlogPage = () => {
   useEffect(() => {
     setLoading(true);
     fetchBlog();
+    // eslint-disable-next-line
   }, [blogId]);
 
   if (loading) {
@@ -112,8 +136,18 @@ const BlogPage = () => {
   return (
     <PageAnimation>
       <BlogContext.Provider
-        value={{ blog, setBlog, isLikedByUser, setIsLikedByUser }}
+        value={{
+          blog,
+          setBlog,
+          isLikedByUser,
+          setIsLikedByUser,
+          commentsWrapper,
+          setCommentsWrapper,
+          totalParentCommentsLoaded,
+          setTotalParentCommentsLoaded,
+        }}
       >
+        <CommentsContainer />
         <div className="center max-w-[900px] py-10 max-lg:px-[5vw]">
           <img
             src={banner}
@@ -124,8 +158,11 @@ const BlogPage = () => {
             <h2>{title}</h2>
             <div className="my-8 flex justify-between max-sm:flex-col">
               <div className="flex items-start gap-5">
-                <img src={profile_img} className="h-12 w-12 rounded-lg" />
-
+                <img
+                  src={profile_img}
+                  alt={`${fullname}'s profile`}
+                  className="h-12 w-12 rounded-lg"
+                />
                 <p className="capitalize">
                   {fullname} <br />
                   <span className="text-dark-gray text-sm">
@@ -136,9 +173,8 @@ const BlogPage = () => {
                   </span>
                 </p>
               </div>
-
               <p className="text-dark-gray opacity-75 max-sm:mt-6 max-sm:ml-12 max-sm:pl-5">
-                Published on
+                Published on{" "}
                 {publishedAt && format(new Date(publishedAt), "dd MMM")}
               </p>
             </div>
@@ -150,9 +186,7 @@ const BlogPage = () => {
           <BlogInteraction />
           {similarBlogs.length > 0 && (
             <>
-              <h1 className="mt-14 mb-10 text-2xl font-medium">
-                Similar Blogs
-              </h1>
+              <h1 className="mt-14 mb-10 text-2xl font-medium">Similar Blogs</h1>
               {similarBlogs.map((blog, index) => {
                 let {
                   author: { personal_info },

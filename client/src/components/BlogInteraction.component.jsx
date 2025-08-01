@@ -27,6 +27,7 @@ const BlogInteraction = () => {
     setBlog,
     isLikedByUser,
     setIsLikedByUser,
+    setCommentsWrapper,
   } = useContext(BlogContext);
 
   let {
@@ -112,7 +113,12 @@ const BlogInteraction = () => {
             {isLikedByUser ? <FaHeart /> : <FaRegHeart />}
           </button>
           <p className="text-dark-gray text-xl">{total_likes}</p>
-          <button className="bg-gray/80 flex h-10 w-10 items-center justify-center rounded-lg">
+          <button
+            onClick={() => {
+              setCommentsWrapper((prev) => !prev);
+            }}
+            className="bg-gray/80 flex h-10 w-10 items-center justify-center rounded-lg"
+          >
             <FaRegCommentDots />
           </button>
           <p className="text-dark-gray text-xl">{total_comments}</p>
