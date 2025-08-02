@@ -29,7 +29,7 @@ const Navbar = () => {
   return (
     <>
       <Toaster />
-      <nav className="navbar">
+      <nav className="navbar z-50">
         <Link to={"/"} className="flex-none">
           <p className="font-gelasio text-3xl font-medium">Diary</p>
         </Link>

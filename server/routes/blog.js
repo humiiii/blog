@@ -453,7 +453,9 @@ router.post("/get-blog-comments", async (req, res) => {
 
     // Input validation
     if (!blog_id) {
-      return res.status(400).json({ error: "Missing required parameter: blog_id" });
+      return res
+        .status(400)
+        .json({ error: "Missing required parameter: blog_id" });
     }
 
     const skipVal = Number.isInteger(skip) && skip > 0 ? skip : 0;
@@ -478,7 +480,85 @@ router.post("/get-blog-comments", async (req, res) => {
     return res.status(200).json({ results: comments, activity });
   } catch (error) {
     console.error("Failed to fetch comments:", error);
-    return res.status(500).json({ error: "Failed to fetch comments. Please try again later." });
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch comments. Please try again later." });
+  }
+});
+
+const deleteComment = async (commentId) => {
+  try {
+    // 1. Find and delete the comment
+    const deletedComment = await Comment.findByIdAndDelete(commentId);
+    if (!deletedComment) return null; // Nothing to do if not found
+
+    // 2. Delete all notifications for this comment
+    await Notification.deleteMany({ comment: commentId });
+
+    // 3. Update the blog's comments array and activity counts
+    //    Only decrement total_parent_comments if top-level comment (no parent)
+    const isParent = !deletedComment.parent;
+
+    await Blog.findByIdAndUpdate(deletedComment.blog_id, {
+      $pull: { comments: commentId },
+      $inc: {
+        "activity.total_comments": -1,
+        "activity.total_parent_comments": isParent ? -1 : 0,
+      },
+    });
+
+    // 4. If this comment is a reply, remove it from the parent's children array
+    if (deletedComment.parent) {
+      await Comment.findByIdAndUpdate(deletedComment.parent, {
+        $pull: { children: commentId },
+      });
+    }
+
+    return deletedComment;
+  } catch (error) {
+    console.error(`Error deleting comment with ID ${commentId}:`, error);
+    throw error;
+  }
+};
+
+router.post("/delete-comment", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { _id: commentId } = req.body;
+
+    if (!commentId) {
+      return res
+        .status(400)
+        .json({ error: "Missing comment ID (_id) in request body." });
+    }
+
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: "Comment not found." });
+    }
+
+    // Check if the user is either the comment owner or the blog author
+    if (
+      userId.toString() !== comment.commented_by.toString() &&
+      userId.toString() !== comment.blog_author.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ error: "You do not have permission to delete this comment." });
+    }
+
+    const deleted = await deleteComment(commentId);
+    if (!deleted)
+      return res
+        .status(404)
+        .json({ error: "Comment not found or already deleted." });
+
+    return res.status(200).json({ message: "Comment deleted successfully." });
+  } catch (error) {
+    console.error("Error in delete-comment route:", error);
+    return res
+      .status(500)
+      .json({ error: "Internal server error while deleting the comment." });
   }
 });
 
