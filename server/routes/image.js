@@ -21,7 +21,7 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
       });
     }
     const uploadResponse = await imagekit.upload({
-      file: req.file.buffer, //
+      file: req.file.buffer,
       fileName: req.file.originalname,
       folder: "/blog-uploads/",
     });

@@ -85,4 +85,36 @@ router.post("/change-password", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/update-profile-image", authMiddleware, async (req, res) => {
+  try {
+    const { uploadedUrl } = req.body;
+
+    if (!uploadedUrl || typeof uploadedUrl !== "string") {
+      return res
+        .status(400)
+        .json({ message: "Invalid or missing uploadedUrl." });
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: req.user.id },
+      { "personal_info.profile_img": uploadedUrl },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    return res.status(200).json({
+      message: "Profile image updated successfully.",
+      profile_img: updatedUser.personal_info.profile_img,
+    });
+  } catch (error) {
+    console.error("Error updating profile image:", error);
+    return res
+      .status(500)
+      .json({ message: "An internal server error occurred." });
+  }
+});
+
 export default router;

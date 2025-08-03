@@ -10,6 +10,7 @@ const InputBox = ({
   Icon,
   register,
   error,
+  disable = false,
 }) => {
   const [passwordVisible, setPasswordVisible] = useState(false);
   return (
@@ -23,6 +24,7 @@ const InputBox = ({
         defaultValue={value}
         id={id}
         className="input-box"
+        disabled={disable}
         {...(typeof register === "function" ? register(name) : {})}
       />
       <Icon className={"input-icon"} />
