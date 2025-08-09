@@ -18,9 +18,9 @@ import {
   FaTwitter,
 } from "react-icons/fa";
 import { storeSession } from "../common/session";
+import { z } from "zod";
 
 const bioLimit = 150;
-
 const socialIcons = {
   linkedin: FaLinkedin,
   instagram: FaInstagram,
@@ -29,6 +29,18 @@ const socialIcons = {
   github: FaGithub,
   website: FaGlobe,
 };
+
+// Validation schema
+const updateProfileSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  bio: z.string().max(bioLimit, `Bio must be at most ${bioLimit} characters`),
+  linkedin: z.string().optional(),
+  facebook: z.string().optional(),
+  github: z.string().optional(),
+  instagram: z.string().optional(),
+  twitter: z.string().optional(),
+  website: z.string().optional(),
+});
 
 const EditProfile = () => {
   const {
@@ -40,30 +52,52 @@ const EditProfile = () => {
   const [profile, setProfile] = useState(profileDataStructure);
   const [loading, setLoading] = useState(true);
 
-  // Form state
+  // Controlled state for bio characters/inputs
   const [charactersLeft, setCharactersLeft] = useState(bioLimit);
+  const [updating, setUpdating] = useState(false);
 
   const personal_info = profile?.personal_info || {};
   const {
-    fullname,
-    username: profile_username,
-    profile_img,
-    email,
-    bio,
+    fullname = "",
+    username: profile_username = "",
+    profile_img = "",
+    email = "",
+    bio = "",
   } = personal_info;
 
-  const social_links = profile?.social_links || {};
+  // Controlled values for editable fields
+  const [username, setUsername] = useState(profile_username);
+  const [bioState, setBioState] = useState(bio);
+  const [socialLinks, setSocialLinks] = useState(profile?.social_links || {});
 
-  // Image refs
+  // Sync initial values after fetch
+  useEffect(() => {
+    setUsername(profile_username || "");
+    setBioState(bio || "");
+    setSocialLinks(profile?.social_links || {});
+    setCharactersLeft(bioLimit - (bio?.length || 0));
+  }, [profile_username, bio, profile?.social_links]);
+
+  // Update social link handler
+  const handleSocialChange = (key, value) => {
+    setSocialLinks((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  // For image preview/upload
   const profileImageRef = useRef();
   const fileInputRef = useRef();
   const [updatedProfileImage, setUpdatedProfileImage] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Fetch profile data
+  // For update form ref
+  const editProfileFormRef = useRef(null);
+
+  // Fetch profile
   useEffect(() => {
     let isCancelled = false;
-
     const fetchProfile = async () => {
       if (!accessToken || !user?.username) {
         setLoading(false);
@@ -80,14 +114,10 @@ const EditProfile = () => {
           setProfile(response.data.user);
         }
       } catch (error) {
-        if (!isCancelled) {
-          setLoading(false);
-        }
+        if (!isCancelled) setLoading(false);
         console.error("Failed to fetch profile:", error);
       } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
+        if (!isCancelled) setLoading(false);
       }
     };
 
@@ -99,6 +129,7 @@ const EditProfile = () => {
 
   // Bio chars count
   const handleBioChange = (e) => {
+    setBioState(e.target.value);
     setCharactersLeft(bioLimit - e.target.value.length);
   };
 
@@ -106,7 +137,6 @@ const EditProfile = () => {
   const handlePreviewImage = (e) => {
     const img = e.target.files?.[0];
     if (!img) return;
-    // Show image preview
     if (profileImageRef.current) {
       profileImageRef.current.src = URL.createObjectURL(img);
     }
@@ -121,10 +151,9 @@ const EditProfile = () => {
     setUploading(true);
     const loadingToast = toast.loading("Uploading image...");
     try {
-      // Upload to your image server
+      // 1. Upload to server
       const formData = new FormData();
       formData.append("image", file);
-
       const uploadRes = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/image/upload-image`,
         formData,
@@ -133,15 +162,15 @@ const EditProfile = () => {
       const uploadedUrl = uploadRes.data.url;
       if (!uploadedUrl) throw new Error("No image URL returned from server");
 
-      // Update profile image on user
+      // 2. Update on user profile
       const updateRes = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/user/update-profile-image`,
         { uploadedUrl },
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
-
       const updatedProfileImg = updateRes.data.profile_img;
-      // Update context and session state
+
+      // 3. Update context/session state
       const newUserAuth = {
         ...userAuth,
         user: { ...userAuth.user, profile_img: updatedProfileImg },
@@ -149,8 +178,15 @@ const EditProfile = () => {
       storeSession("user", newUserAuth);
       setUserAuth(newUserAuth);
 
+      setProfile((oldProfile) => ({
+        ...oldProfile,
+        personal_info: {
+          ...oldProfile.personal_info,
+          profile_img: updatedProfileImg,
+        },
+      }));
+
       setUpdatedProfileImage(null);
-      // Optionally update preview to the freshly uploaded image
       if (profileImageRef.current) profileImageRef.current.src = uploadedUrl;
       if (fileInputRef.current) fileInputRef.current.value = "";
       toast.dismiss(loadingToast);
@@ -164,13 +200,87 @@ const EditProfile = () => {
     }
   };
 
+  // Profile update handler
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    const formData = {
+      username: username.trim(),
+      bio: bioState,
+      social_links: { ...socialLinks },
+    };
+
+    // Validate
+    try {
+      updateProfileSchema.parse(formData);
+    } catch (err) {
+      const errMsg = err.errors?.[0]?.message || "Invalid input";
+      toast.error(errMsg);
+      return;
+    }
+
+    setUpdating(true);
+    const loadingToast = toast.loading("Updating...");
+    try {
+      const { data } = await axios.post(
+        `${import.meta.env.VITE_SERVER_URL}/api/user/update-profile`,
+        {
+          username: formData.username,
+          bio: formData.bio,
+          social_links: {
+            linkedin: formData.linkedin || "",
+            facebook: formData.facebook || "",
+            github: formData.github || "",
+            instagram: formData.instagram || "",
+            twitter: formData.twitter || "",
+            website: formData.website || "",
+          },
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+
+      // Update userAuth context/state/sessions if username changed
+      if (userAuth.user.username !== data.username) {
+        const newUserAuth = {
+          ...userAuth,
+          user: { ...userAuth.user, username: data.username },
+        };
+        setUserAuth(newUserAuth);
+        storeSession("user", newUserAuth);
+      }
+
+      // Update local state for immediate feedback
+      setProfile((oldProfile) => ({
+        ...oldProfile,
+        personal_info: {
+          ...oldProfile.personal_info,
+          username: data.username,
+          bio: data.bio,
+        },
+        social_links: {
+          ...data.social_links,
+        },
+      }));
+
+      toast.dismiss(loadingToast);
+      toast.success("Profile updated!");
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to update profile. Please try again.",
+      );
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <PageAnimation>
       <Toaster />
       {loading ? (
         <Loader />
       ) : (
-        <form>
+        <form ref={editProfileFormRef} onSubmit={handleUpdateProfile}>
           <h1 className="max-md:hidden">Edit Profile</h1>
           <div className="flex flex-col items-start gap-8 py-10 lg:flex-row lg:gap-10">
             {/* Profile picture uploader */}
@@ -234,7 +344,8 @@ const EditProfile = () => {
               <InputBox
                 type="text"
                 name="username"
-                value={profile_username}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 placeholder="Username"
                 Icon={MdAlternateEmail}
               />
@@ -245,7 +356,7 @@ const EditProfile = () => {
               <textarea
                 name="bio"
                 maxLength={bioLimit}
-                defaultValue={bio}
+                value={bioState}
                 className="input-box mt-5 h-64 resize-none pl-5 leading-7 lg:h-40"
                 placeholder="Bio"
                 onChange={handleBioChange}
@@ -257,24 +368,25 @@ const EditProfile = () => {
                 Add your social handles below
               </p>
               <div className="gap-x-6 md:grid md:grid-cols-2">
-                {Object.keys(social_links).map((key, index) => {
-                  const IconComponent = socialIcons[key] || null;
-                  const link = social_links[key];
-                  return (
-                    <InputBox
-                      key={index}
-                      name={key}
-                      type="text"
-                      value={link}
-                      placeholder="https://"
-                      Icon={IconComponent}
-                    />
-                  );
-                })}
+                {Object.keys(socialIcons).map((key, index) => (
+                  <InputBox
+                    key={index}
+                    name={key}
+                    type="text"
+                    value={socialLinks[key] || ""}
+                    placeholder="https://"
+                    onChange={(e) => handleSocialChange(key, e.target.value)}
+                    Icon={socialIcons[key]}
+                  />
+                ))}
               </div>
             </div>
-            <button className="btn-dark w-auto px-10" type="submit">
-              Update
+            <button
+              className="btn-dark w-auto px-10"
+              type="submit"
+              disabled={updating}
+            >
+              {updating ? "Updating..." : "Update"}
             </button>
           </div>
         </form>
